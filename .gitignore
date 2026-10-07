@@ -1,0 +1,14 @@
+# Python
+api/.venv/
+__pycache__/
+*.pyc
+api/.env
+api/storage/
+
+# Node
+web/node_modules/
+web/dist/
+
+# Editor / OS
+.vscode/
+.DS_Store
