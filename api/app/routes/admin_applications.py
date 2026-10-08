@@ -7,6 +7,13 @@ from pydantic import ValidationError
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 from werkzeug.security import safe_join
+import csv
+from datetime import date
+
+from flask import Response
+
+from app.models import IntakeStatus
+from app.utils import paginate
 
 from app.auth import roles_required
 from app.extensions import db
@@ -102,35 +109,25 @@ def _get_application(app_id: int) -> Application:
         abort(404, description="Application not found")
     return a
 
-
-@admin_apps_bp.get("/applications")
-@roles_required()
-def list_applications():
-    page = max(request.args.get("page", 1, type=int), 1)
-    per_page = min(max(request.args.get("per_page", 25, type=int), 1), 100)
-
+def _filtered_applications():
     base = (
         select(Application)
         .join(Application.applicant)
         .join(Application.intake)
         .join(Intake.programme)
     )
-
     status = request.args.get("status", "").strip()
     if status:
         try:
             base = base.where(Application.status == ApplicationStatus(status))
         except ValueError:
             abort(400, description="Unknown status")
-
     intake_id = request.args.get("intake_id", type=int)
     if intake_id:
         base = base.where(Application.intake_id == intake_id)
-
     programme_id = request.args.get("programme_id", type=int)
     if programme_id:
         base = base.where(Programme.id == programme_id)
-
     q = request.args.get("q", "").strip()
     if q:
         like = f"%{q}%"
@@ -138,24 +135,45 @@ def list_applications():
             Application.reference_no.ilike(like), Applicant.first_name.ilike(like),
             Applicant.surname.ilike(like), Applicant.id_number.ilike(like), Applicant.email.ilike(like),
         ))
+    return base
 
-    total = db.session.scalar(select(func.count()).select_from(base.subquery()))
 
-    sort_col = SORTABLE.get(request.args.get("sort", "submitted_at"), Application.submitted_at)
-    order = sort_col.asc() if request.args.get("order", "desc").lower() == "asc" else sort_col.desc()
+ROW_OPTIONS = (
+    selectinload(Application.applicant),
+    selectinload(Application.intake).selectinload(Intake.programme),
+    selectinload(Application.letter),
+)
 
-    stmt = (
-        base.order_by(order, Application.id.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-        .options(
-            selectinload(Application.applicant),
-            selectinload(Application.intake).selectinload(Intake.programme),
-            selectinload(Application.letter),
-        )
-    )
-    rows = db.session.scalars(stmt).all()
-    return jsonify(data=[_row_json(a) for a in rows], total=total)
+
+@admin_apps_bp.get("/applications")
+@roles_required()
+def list_applications():
+    col = SORTABLE.get(request.args.get("sort", "submitted_at"), Application.submitted_at)
+    order = col.asc() if request.args.get("order", "desc").lower() == "asc" else col.desc()
+    return paginate(_filtered_applications(), [order, Application.id.desc()], _row_json, *ROW_OPTIONS)
+
+
+@admin_apps_bp.get("/exports/applications.csv")
+@roles_required()
+def export_applications():
+    rows = db.session.scalars(
+        _filtered_applications().order_by(Application.submitted_at).options(*ROW_OPTIONS)
+    ).all()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Reference", "Status", "Submitted", "Title", "First name", "Middle name", "Surname",
+                "ID/Passport", "Phone", "Email", "County", "Programme", "Intake start", "Employer",
+                "Job title", "Qualification", "Sponsorship", "Letter No."])
+    for a in rows:
+        ap = a.applicant
+        w.writerow([a.reference_no, a.status.value, a.submitted_at.strftime("%Y-%m-%d %H:%M"), ap.title,
+                    ap.first_name, ap.middle_name, ap.surname, ap.id_number, ap.phone, ap.email, ap.county,
+                    a.intake.programme.title, a.intake.start_date.isoformat(), a.employer, a.job_title,
+                    a.highest_qualification, a.sponsorship.value, a.letter.letter_no if a.letter else ""])
+    filename = f"cpd-applications-{date.today().isoformat()}.csv"
+    # The BOM makes Excel open the file as UTF-8 (names with accents display correctly).
+    return Response("\ufeff" + buf.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 @admin_apps_bp.get("/applications/<int:app_id>")
@@ -182,6 +200,16 @@ def update_application(app_id: int):
         if upd.status == ApplicationStatus.ADMITTED and a.letter is None:
             issue_letter(a, current_user)   # if PDF generation fails, nothing is saved
             newly_admitted = True
+            intake = a.intake
+            if intake.capacity:
+                db.session.flush()
+                admitted = db.session.scalar(
+                    select(func.count(Application.id)).where(
+                        Application.intake_id == intake.id, Application.status == ApplicationStatus.ADMITTED
+                    )
+                )
+                if admitted >= intake.capacity:
+                    intake.status = IntakeStatus.FULL   # removes the Apply button on the calendar
 
     if upd.admin_notes is not None:
         a.admin_notes = upd.admin_notes

@@ -134,3 +134,57 @@ class ApplicationUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     status: ApplicationStatus | None = None
     admin_notes: str | None = Field(None, max_length=5000)
+
+
+# ---------- Admin catalogue (Phase 6) ----------
+
+def _blank_to_none(v):
+    return None if v == "" else v
+
+
+class ProgrammeIn(BaseModel):
+    # extra="ignore": the admin UI sends back the whole record (id, has_brochure, …)
+    model_config = ConfigDict(str_strip_whitespace=True, extra="ignore")
+
+    title: str = Field(min_length=3, max_length=200)
+    slug: str | None = Field(None, max_length=160, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    category: str = Field(min_length=2, max_length=100)
+    summary: str = Field(min_length=10, max_length=1000)
+    description: str = ""
+    target_audience: str = ""
+    learning_outcomes: str = ""
+    duration_text: str = Field(min_length=1, max_length=100)
+    mode: DeliveryMode
+    cpd_hours: int | None = Field(None, ge=0, le=1000)
+    fee_kes: int = Field(ge=0, le=10_000_000)
+    is_published: bool = False
+
+    _blanks = field_validator("slug", "cpd_hours", mode="before")(_blank_to_none)
+
+    @field_validator("description", "target_audience", "learning_outcomes", mode="before")
+    @classmethod
+    def none_to_blank(cls, v):
+        return "" if v is None else v
+
+
+class IntakeIn(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="ignore")
+
+    programme_id: int
+    start_date: date
+    end_date: date
+    venue: str = Field(min_length=2, max_length=200)
+    capacity: int | None = Field(None, ge=1, le=10_000)
+    application_deadline: date
+    reporting_time: str | None = Field(None, max_length=50)
+    status: IntakeStatus = IntakeStatus.OPEN
+
+    _blanks = field_validator("capacity", "reporting_time", mode="before")(_blank_to_none)
+
+    @model_validator(mode="after")
+    def check_dates(self):
+        if self.end_date < self.start_date:
+            raise ValueError("The end date must be on or after the start date")
+        if self.application_deadline > self.start_date:
+            raise ValueError("The application deadline must be on or before the start date")
+        return self

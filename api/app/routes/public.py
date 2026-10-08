@@ -1,6 +1,7 @@
 from datetime import date
-
-from flask import Blueprint, abort, jsonify, request
+import os
+from flask import Blueprint, abort, current_app, jsonify, request, send_file
+from werkzeug.security import safe_join
 from sqlalchemy import extract, select
 from sqlalchemy.orm import contains_eager
 
@@ -96,3 +97,13 @@ def intake_detail(public_id):
     if intake is None:
         abort(404, description="This intake could not be found.")
     return jsonify(IntakeOut.model_validate(intake).model_dump(mode="json"))
+
+@public_bp.get("/programmes/<slug>/brochure")
+def programme_brochure(slug: str):
+    p = db.session.scalar(select(Programme).where(Programme.slug == slug, Programme.is_published.is_(True)))
+    if p is None or not p.brochure_path:
+        abort(404, description="No brochure available for this programme.")
+    path = safe_join(current_app.config["UPLOAD_FOLDER"], p.brochure_path)
+    if path is None or not os.path.isfile(path):
+        abort(404, description="No brochure available for this programme.")
+    return send_file(path, mimetype="application/pdf", download_name=f"{p.slug}-brochure.pdf")

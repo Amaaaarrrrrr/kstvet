@@ -22,7 +22,8 @@ def create_app(config_class=Config):
     from app.routes.applications import applications_bp
     from app.routes.health import health_bp
     from app.routes.public import public_bp
-    for bp in (health_bp, public_bp, applications_bp, admin_auth_bp,track_bp, admin_apps_bp):
+    from app.routes.admin_catalogue import admin_cat_bp
+    for bp in (health_bp, public_bp, applications_bp, admin_auth_bp,track_bp, admin_apps_bp, admin_cat_bp):
         app.register_blueprint(bp)
 
     from app.cli import register_cli
