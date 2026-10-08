@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(npm ls:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(flask --app wsgi routes)"
+    ],
+    "deny": [
+      "Read(./api/.env)",
+      "Read(./api/.env.*)",
+      "Read(./api/storage/**)",
+      "Bash(npm audit fix --force)"
+    ]
+  }
+}
