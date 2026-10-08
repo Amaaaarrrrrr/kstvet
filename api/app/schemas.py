@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
-from app.models import DeliveryMode, IntakeStatus, Sponsorship
+from app.models import ApplicationStatus, DeliveryMode, IntakeStatus, Sponsorship
 
 
 class ORMModel(BaseModel):
@@ -128,3 +128,9 @@ class ApplicationCreated(BaseModel):
     programme_title: str
     start_date: date
     end_date: date
+
+
+class ApplicationUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: ApplicationStatus | None = None
+    admin_notes: str | None = Field(None, max_length=5000)
