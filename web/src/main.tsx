@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,7 +11,7 @@ import NotFoundPage from "./pages/NotFoundPage";
 import ProgrammePage from "./pages/ProgrammePage";
 import SubmittedPage from "./pages/SubmittedPage";
 import TrackPage from "./pages/TrackPage";
-
+const AdminApp = lazy(() => import("./admin/AdminApp"));
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, retry: 1 } },
 });
@@ -29,6 +29,14 @@ createRoot(document.getElementById("root")!).render(
             <Route path="track" element={<TrackPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
+          <Route
+              path="admin/*"
+              element={
+                <Suspense fallback={<p style={{ padding: 24 }}>Loading admin…</p>}>
+                  <AdminApp />
+                </Suspense>
+              }
+           />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
