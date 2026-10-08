@@ -3,6 +3,7 @@ from werkzeug.exceptions import HTTPException
 
 from app.config import Config
 from app.extensions import db, jwt, migrate
+from app.routes.track import track_bp
 
 
 def create_app(config_class=Config):
@@ -21,7 +22,7 @@ def create_app(config_class=Config):
     from app.routes.applications import applications_bp
     from app.routes.health import health_bp
     from app.routes.public import public_bp
-    for bp in (health_bp, public_bp, applications_bp, admin_auth_bp, admin_apps_bp):
+    for bp in (health_bp, public_bp, applications_bp, admin_auth_bp,track_bp, admin_apps_bp):
         app.register_blueprint(bp)
 
     from app.cli import register_cli

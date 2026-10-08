@@ -45,3 +45,16 @@ export interface ApplicationCreated {
   start_date: string;
   end_date: string;
 }
+
+export type ApplicationStatus = "submitted" | "under_review" | "admitted" | "rejected" | "withdrawn";
+
+export interface TrackResult {
+  reference_no: string;
+  status: ApplicationStatus;
+  applicant_name: string;
+  programme_title: string;
+  start_date: string;
+  end_date: string;
+  submitted_at: string;
+  letter: { letter_no: string; issued_at: string; download_url: string } | null;
+}

@@ -9,6 +9,7 @@ from app.extensions import db
 from app.models import Applicant, Application, ApplicationDocument, ApplicationStatus, Intake
 from app.schemas import ApplicationCreate, ApplicationCreated
 from app.services.uploads import save_file, validate_files
+from app.services.letters import send_received_email
 
 applications_bp = Blueprint("applications", __name__, url_prefix="/api")
 
@@ -129,6 +130,8 @@ def create_application():
             if os.path.exists(p):
                 os.remove(p)
         raise
+
+    send_received_email(application)  # best effort; never blocks the submission
 
     result = ApplicationCreated(
         reference_no=application.reference_no,

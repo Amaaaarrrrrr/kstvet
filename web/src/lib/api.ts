@@ -26,3 +26,13 @@ export async function apiPostForm<T>(path: string, body: FormData): Promise<T> {
   if (!res.ok) throw await parseError(res);
   return res.json() as Promise<T>;
 }
+
+export async function apiPostJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseError(res);
+  return res.json() as Promise<T>;
+}

@@ -1,14 +1,19 @@
 # Python
-api/.venv/
+.venv/
 __pycache__/
-*.pyc
-api/.env
-api/storage/
+*.py[cod]
+*.pyo
+
+# Environment/secrets
+.env
+*.env
 
 # Node
-web/node_modules/
-web/dist/
+node_modules/
+dist/
 
-# Editor / OS
+# IDE
 .vscode/
+
+# OS
 .DS_Store

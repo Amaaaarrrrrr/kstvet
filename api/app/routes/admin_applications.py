@@ -1,6 +1,8 @@
+import io
 import os
 
 from flask import Blueprint, abort, current_app, jsonify, request, send_file
+from flask_jwt_extended import current_user
 from pydantic import ValidationError
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
@@ -12,6 +14,9 @@ from app.models import (
     Applicant, Application, ApplicationDocument, ApplicationStatus, Intake, Programme,
 )
 from app.schemas import ApplicationUpdate
+from app.services.letters import (
+    email_letter, issue_letter, letter_bytes, letter_filename, regenerate_letter,
+)
 
 admin_apps_bp = Blueprint("admin_applications", __name__, url_prefix="/api/admin")
 
@@ -169,16 +174,23 @@ def update_application(app_id: int):
         fields = {".".join(map(str, x["loc"])): x["msg"] for x in e.errors()}
         return jsonify(error="validation_error", message="Invalid update", fields=fields), 422
 
+    newly_admitted = False
     if upd.status is not None and upd.status != a.status:
         if a.letter is not None and upd.status != ApplicationStatus.ADMITTED:
             abort(409, description="An admission letter has already been issued for this application.")
         a.status = upd.status
-        # Phase 5: when status becomes ADMITTED, generate and email the admission letter here.
+        if upd.status == ApplicationStatus.ADMITTED and a.letter is None:
+            issue_letter(a, current_user)   # if PDF generation fails, nothing is saved
+            newly_admitted = True
 
     if upd.admin_notes is not None:
         a.admin_notes = upd.admin_notes
 
     db.session.commit()
+
+    if newly_admitted:
+        email_letter(a.letter)  # best effort: the letter stays downloadable even if email fails
+
     return jsonify(_detail_json(a))
 
 
@@ -197,3 +209,36 @@ def download_document(doc_id: int):
         as_attachment=request.args.get("download") == "1",
         download_name=doc.original_name,
     )
+
+@admin_apps_bp.get("/applications/<int:app_id>/letter")
+@roles_required()
+def view_letter(app_id: int):
+    a = _get_application(app_id)
+    if a.letter is None:
+        abort(404, description="No admission letter has been issued yet.")
+    return send_file(
+        io.BytesIO(letter_bytes(a.letter)), mimetype="application/pdf",
+        as_attachment=request.args.get("download") == "1", download_name=letter_filename(a.letter),
+    )
+
+
+@admin_apps_bp.post("/applications/<int:app_id>/letter/regenerate")
+@roles_required("admin", "officer")
+def regenerate(app_id: int):
+    a = _get_application(app_id)
+    if a.letter is None:
+        abort(404, description="No admission letter has been issued yet.")
+    regenerate_letter(a.letter)
+    db.session.commit()
+    return jsonify(_detail_json(a))
+
+
+@admin_apps_bp.post("/applications/<int:app_id>/letter/resend")
+@roles_required("admin", "officer")
+def resend(app_id: int):
+    a = _get_application(app_id)
+    if a.letter is None:
+        abort(404, description="No admission letter has been issued yet.")
+    if not email_letter(a.letter):
+        abort(502, description="The email could not be sent. Check the mail settings and try again.")
+    return jsonify(_detail_json(a))

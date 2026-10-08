@@ -14,6 +14,7 @@ export default function Layout() {
           </Link>
           <nav className="flex items-center gap-1">
             <NavLink to="/" end className={nav}>CPD Calendar</NavLink>
+            <NavLink to="/track" className={nav}>Track application</NavLink>
             <a href="https://www.kstvet.ac.ke" className="px-3 py-2 text-sm text-slate-200 hover:text-white">
               Main website
             </a>
