@@ -83,3 +83,16 @@ def programme_detail(slug: str):
         update={"intakes": [IntakeBrief.model_validate(i) for i in programme.intakes if _upcoming(i)]}
     )
     return jsonify(detail.model_dump(mode="json"))
+
+
+@public_bp.get("/intakes/<uuid:public_id>")
+def intake_detail(public_id):
+    intake = db.session.scalar(
+        select(Intake)
+        .join(Intake.programme)
+        .options(contains_eager(Intake.programme))
+        .where(Intake.public_id == public_id, Programme.is_published.is_(True))
+    )
+    if intake is None:
+        abort(404, description="This intake could not be found.")
+    return jsonify(IntakeOut.model_validate(intake).model_dump(mode="json"))

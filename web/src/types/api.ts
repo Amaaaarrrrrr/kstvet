@@ -35,3 +35,13 @@ export interface ProgrammeDetail extends ProgrammeSummary {
   has_brochure: boolean;
   intakes: IntakeBrief[];
 }
+
+export interface ApplicationCreated {
+  reference_no: string;
+  public_id: string;
+  status: string;
+  email: string;
+  programme_title: string;
+  start_date: string;
+  end_date: string;
+}

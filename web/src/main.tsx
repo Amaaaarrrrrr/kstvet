@@ -9,6 +9,7 @@ import ApplyPage from "./pages/ApplyPage";
 import CalendarPage from "./pages/CalendarPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProgrammePage from "./pages/ProgrammePage";
+import SubmittedPage from "./pages/SubmittedPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000, retry: 1 } },
@@ -23,6 +24,7 @@ createRoot(document.getElementById("root")!).render(
             <Route index element={<CalendarPage />} />
             <Route path="programmes/:slug" element={<ProgrammePage />} />
             <Route path="apply/:intakeId" element={<ApplyPage />} />
+            <Route path="applications/submitted" element={<SubmittedPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
