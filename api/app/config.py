@@ -6,10 +6,17 @@ load_dotenv()
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-
+def _database_url() -> str:
+    url = os.environ["DATABASE_URL"]
+    # Render gives postgres:// or postgresql://; we use the psycopg 3 driver.
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-change-me")
-    SQLALCHEMY_DATABASE_URI = os.environ["DATABASE_URL"]
+    SQLALCHEMY_DATABASE_URI = _database_url()
+    FRONTEND_DIST = os.environ.get("FRONTEND_DIST", "")   # folder with the built React app (production)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join(BASE_DIR, "storage", "uploads"))
     MAX_CONTENT_LENGTH = 25 * 1024 * 1024  # 25 MB per request

@@ -1,10 +1,10 @@
-from flask import Flask, jsonify
+from flask import Flask, abort, jsonify, send_from_directory
 from werkzeug.exceptions import HTTPException
-
+import os
 from app.config import Config
 from app.extensions import db, jwt, migrate
 from app.routes.track import track_bp
-
+from werkzeug.security import safe_join
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -32,5 +32,21 @@ def create_app(config_class=Config):
     @app.errorhandler(HTTPException)
     def handle_http_error(err: HTTPException):
         return jsonify(error=err.name, message=err.description), err.code
+
+
+        # Production: serve the built React app; any non-API path returns index.html (client-side routing).
+    dist = app.config.get("FRONTEND_DIST")
+    if dist:
+        dist = os.path.abspath(dist)
+    if dist and os.path.isdir(dist):
+        @app.get("/", defaults={"path": ""})
+        @app.get("/<path:path>")
+        def spa(path: str):
+            if path.startswith("api/"):
+                abort(404)
+            full = safe_join(dist, path) if path else None
+            if full and os.path.isfile(full):
+                return send_from_directory(dist, path)
+            return send_from_directory(dist, "index.html")
 
     return app

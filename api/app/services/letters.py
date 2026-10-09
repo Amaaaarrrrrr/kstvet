@@ -86,9 +86,14 @@ def regenerate_letter(letter: AdmissionLetter) -> None:
 
 
 def letter_bytes(letter: AdmissionLetter) -> bytes:
-    with open(_abs(letter.pdf_path), "rb") as f:
+    path = _abs(letter.pdf_path) if letter.pdf_path else None
+    if not path or not os.path.isfile(path):
+        # Free/ephemeral hosting can wipe files on restart; rebuild the letter from the database.
+        _store(letter, render_letter_pdf(letter))
+        db.session.commit()
+        path = _abs(letter.pdf_path)
+    with open(path, "rb") as f:
         return f.read()
-
 
 def letter_filename(letter: AdmissionLetter) -> str:
     return f"KSTVET-Admission-Letter-{letter.letter_no.replace('/', '-')}.pdf"
